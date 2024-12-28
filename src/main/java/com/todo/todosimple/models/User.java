@@ -22,8 +22,8 @@ import java.util.Objects;
 @Entity
 @Table(name = User.TABLE_NAME)
 public class User {
-    public interface CreateUser();
-    public interfaec UpdateUser();
+    public interface CreateUser()
+    public interfaec UpdateUser()
 
     public static final String TABLE_NAME = "user";
 
