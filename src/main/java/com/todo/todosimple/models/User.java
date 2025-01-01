@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonProperty.Access;
+import com.todo.todosimple.models.enums.ProfileEnum;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
