@@ -40,14 +40,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler imple
     @Override
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException methodArgumentNotValidException,
+            MethodArgumentNotValidException ex,
             HttpHeaders headers,
             HttpStatus status,
             WebRequest request) {
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.UNPROCESSABLE_ENTITY.value(),
                 "Validation error. Check 'errors' field for details.");
-        for (FieldError fieldError : methodArgumentNotValidException.getBindingResult().getFieldErrors()) {
+        for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
             errorResponse.addValidationError(fieldError.getField(), fieldError.getDefaultMessage());
         }
         return ResponseEntity.unprocessableEntity().body(errorResponse);
@@ -55,131 +55,91 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler imple
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ResponseEntity<Object> handleAllUncaughtException(
-            Exception exception,
-            WebRequest request) {
-        final String errorMessage = "Unknown error occurred";
-        log.error(errorMessage, exception);
-        return buildErrorResponse(
-                exception,
-                errorMessage,
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                request);
+    public ResponseEntity<Object> handleAllUncaughtException(Exception ex, WebRequest request) {
+        final String errorMessage = "An unknown error occurred.";
+        log.error(errorMessage, ex);
+        return buildErrorResponse(ex, errorMessage, HttpStatus.INTERNAL_SERVER_ERROR, request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ResponseEntity<Object> handleDataIntegrityViolationException(
-            DataIntegrityViolationException dataIntegrityViolationException,
-            WebRequest request) {
-        String errorMessage = dataIntegrityViolationException.getMostSpecificCause().getMessage();
-        log.error("Failed to save entity with integrity problems: " + errorMessage, dataIntegrityViolationException);
-        return buildErrorResponse(
-                dataIntegrityViolationException,
-                errorMessage,
-                HttpStatus.CONFLICT,
-                request);
+            DataIntegrityViolationException ex, WebRequest request) {
+        String errorMessage = ex.getMostSpecificCause().getMessage();
+        log.error("Data integrity violation: {}", errorMessage, ex);
+        return buildErrorResponse(ex, errorMessage, HttpStatus.CONFLICT, request);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
-    public ResponseEntity<Object> handleConstraintViolationException(
-            ConstraintViolationException constraintViolationException,
+    public ResponseEntity<Object> handleConstraintViolationException(ConstraintViolationException ex,
             WebRequest request) {
-        log.error("Failed to validate element", constraintViolationException);
-        return buildErrorResponse(
-                constraintViolationException,
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                request);
+        log.error("Constraint violation error", ex);
+        return buildErrorResponse(ex, HttpStatus.UNPROCESSABLE_ENTITY, request);
     }
 
     @ExceptionHandler(ObjectNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ResponseEntity<Object> handleObjectNotFoundException(
-            ObjectNotFoundException objectNotFoundException,
-            WebRequest request) {
-        log.error("Failed to find the requested element", objectNotFoundException);
-        return buildErrorResponse(
-                objectNotFoundException,
-                HttpStatus.NOT_FOUND,
-                request);
+    public ResponseEntity<Object> handleObjectNotFoundException(ObjectNotFoundException ex, WebRequest request) {
+        log.error("Object not found", ex);
+        return buildErrorResponse(ex, HttpStatus.NOT_FOUND, request);
     }
 
     @ExceptionHandler(DataBindingViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ResponseEntity<Object> handleDataBindingViolationException(
-            DataBindingViolationException dataBindingViolationException,
+    public ResponseEntity<Object> handleDataBindingViolationException(DataBindingViolationException ex,
             WebRequest request) {
-        log.error("Failed to save entity with associated data", dataBindingViolationException);
-        return buildErrorResponse(
-                dataBindingViolationException,
-                HttpStatus.CONFLICT,
-                request);
+        log.error("Data binding violation", ex);
+        return buildErrorResponse(ex, HttpStatus.CONFLICT, request);
     }
 
     @ExceptionHandler(AuthenticationException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ResponseEntity<Object> handleAuthenticationException(
-            AuthenticationException authenticationException,
-            WebRequest request) {
-        log.error("Authentication error ", authenticationException);
-        return buildErrorResponse(
-                authenticationException,
-                HttpStatus.UNAUTHORIZED,
-                request);
+    public ResponseEntity<Object> handleAuthenticationException(AuthenticationException ex, WebRequest request) {
+        log.error("Authentication error", ex);
+        return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, request);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ResponseEntity<Object> handleAccessDeniedException(
-            AccessDeniedException accessDeniedException,
-            WebRequest request) {
-        log.error("Authorization error ", accessDeniedException);
-        return buildErrorResponse(
-                accessDeniedException,
-                HttpStatus.FORBIDDEN,
-                request);
+    public ResponseEntity<Object> handleAccessDeniedException(AccessDeniedException ex, WebRequest request) {
+        log.error("Access denied error", ex);
+        return buildErrorResponse(ex, HttpStatus.FORBIDDEN, request);
     }
 
     @ExceptionHandler(AuthorizationException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ResponseEntity<Object> handleAuthorizationException(
-            AuthorizationException authorizationException,
-            WebRequest request) {
-        log.error("Authorization error ", authorizationException);
-        return buildErrorResponse(
-                authorizationException,
-                HttpStatus.FORBIDDEN,
-                request);
+    public ResponseEntity<Object> handleAuthorizationException(AuthorizationException ex, WebRequest request) {
+        log.error("Authorization error", ex);
+        return buildErrorResponse(ex, HttpStatus.FORBIDDEN, request);
     }
 
     private ResponseEntity<Object> buildErrorResponse(
-            Exception exception,
-            HttpStatus httpStatus,
-            WebRequest request) {
-        return buildErrorResponse(exception, exception.getMessage(), httpStatus, request);
-    }
-
-    private ResponseEntity<Object> buildErrorResponse(
-            Exception exception,
+            Exception ex,
             String message,
-            HttpStatus httpStatus,
+            HttpStatus status,
             WebRequest request) {
-        ErrorResponse errorResponse = new ErrorResponse(httpStatus.value(), message);
-        if (this.printStackTrace) {
-            errorResponse.setStackTrace(ExceptionUtils.getStackTrace(exception));
+        ErrorResponse errorResponse = new ErrorResponse(status.value(), message);
+        if (printStackTrace) {
+            errorResponse.setStackTrace(ExceptionUtils.getStackTrace(ex));
         }
-        return ResponseEntity.status(httpStatus).body(errorResponse);
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+
+    private ResponseEntity<Object> buildErrorResponse(
+            Exception ex,
+            HttpStatus status,
+            WebRequest request) {
+        return buildErrorResponse(ex, ex.getMessage(), status, request);
     }
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
             AuthenticationException exception) throws IOException, ServletException {
-        Integer status = HttpStatus.UNAUTHORIZED.value();
+        int status = HttpStatus.UNAUTHORIZED.value();
         response.setStatus(status);
         response.setContentType("application/json");
-        ErrorResponse errorResponse = new ErrorResponse(status, "Username or password are invalid");
+        ErrorResponse errorResponse = new ErrorResponse(status, "Invalid username or password.");
         response.getWriter().append(errorResponse.toJson());
     }
-
 }
